@@ -1,9 +1,5 @@
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.RandomAccessFile;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.io.*;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -12,16 +8,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Tema2 {
     public static String orders;
     public static String products;
-    private static Integer P;
+    public static Integer P;
     // save the indexes from where each thread should read
     public static ConcurrentHashMap<Integer, ArrayList<Long>> threadToBytes;
-    // count how many active orders each thread has
-    public static ConcurrentHashMap<Integer, AtomicInteger> threadToOrdersNumber;
     // count how many objects each order has
     public static ConcurrentHashMap<String, Integer> orderToObjects;
-    public static AtomicInteger level1ThreadsActive;
-    public static long orderLength;
-    public static long productsLength;
+    public static ConcurrentHashMap<String, Integer> orderToObjectsClone;
+    // count how many orders are being processed
+    public static AtomicInteger ordersInProgress;
+    // file lengths
+    public static long orderFileLength;
+    public static long productsFileLength;
+    // output printers
     public static PrintWriter ordersOutFile;
     public static PrintWriter orderProductsOutFile;
 
@@ -31,47 +29,49 @@ public class Tema2 {
      * @param args command line args
      */
     public static void extractParams(String[] args) {
-        String dir = args[0];
-        orders = dir + "/orders.txt";
-        products = dir + "/order_products.txt";
-        P = Integer.valueOf(args[1]);
+        String dir = args[Constants.directoryPosition];
+        orders = dir + Constants.ordersFileName;
+        products = dir + Constants.orderProductsFileName;
+        P = Integer.valueOf(args[Constants.threadsPosition]);
     }
 
     /**
-     * function computes for each level 1 thread
+     * function that computes for each level 1 thread
      * the beginning and ending byte to read from
      * (will be updated if they don't exactly match
      * with the beginning of a new line)
      */
-    public static void computeBytes() throws IOException {
+    public static void computeBytes() {
+        // get input file lengths
         {
-            RandomAccessFile file = new RandomAccessFile(Tema2.orders, "r");
-            orderLength = file.length();
-            file.close();
+            File file = new File(Tema2.orders);
+            orderFileLength = file.length();
         }
 
         {
-            RandomAccessFile file = new RandomAccessFile(Tema2.products, "r");
-            productsLength = file.length();
-            file.close();
+            File file = new File(Tema2.products);
+            productsFileLength = file.length();
         }
 
-        long threadLength = orderLength / P;
+        // compute each thread's read size
+        long threadLength = orderFileLength / P;
         threadToBytes = new ConcurrentHashMap<>();
+
+        // assigns rough portions of the input file for each tread
         for (int i = 0; i < P; i++) {
-            threadToBytes.put(i, new ArrayList<Long>
-                    (Arrays.<Long>asList(threadLength * i,
+            threadToBytes.put(i, new ArrayList<>
+                    (Arrays.asList(threadLength * i,
                             threadLength * (i + 1))));
         }
     }
 
+    /**
+     * function that initialises the data structures
+     */
     public static void initialise() throws IOException {
-        level1ThreadsActive = new AtomicInteger(P);
+        ordersInProgress = new AtomicInteger(0);
         orderToObjects = new ConcurrentHashMap<>();
-        threadToOrdersNumber = new ConcurrentHashMap<>();
-        for (int i = 0; i < P; i++) {
-            threadToOrdersNumber.put(i, new AtomicInteger(0));
-        }
+        orderToObjectsClone = new ConcurrentHashMap<>();
 
         ordersOutFile = new PrintWriter(new FileWriter(Constants.orders_out));
         orderProductsOutFile = new PrintWriter(new FileWriter(Constants.order_products_out));
