@@ -74,7 +74,8 @@ public class Tema2 {
         orderToObjectsClone = new ConcurrentHashMap<>();
 
         ordersOutFile = new PrintWriter(new FileWriter(Constants.orders_out));
-        orderProductsOutFile = new PrintWriter(new FileWriter(Constants.order_products_out));
+        orderProductsOutFile = new PrintWriter(new
+                FileWriter(Constants.order_products_out));
 
         // compute each level 1 thread's area of work
         computeBytes();

@@ -1,0 +1,65 @@
+Dinica Mihnea 333CA
+Workflow tema
+
+Tema2:
+- entrypoint-ul programului, prezinta campuri si metode statice, putand fi accesate
+si de threaduri (s-au folosit structuri de date si variabile thread-safe unde a
+fost necesar)
+- extrage parametri de rulare din linia de comanda si face o serie de preprocesari
+si initializari necesare executiei programului, cea mai relevanta fiind atribuirea
+unor zone de lucru din fisierul de intrare pentru fiecare thread in parte, aceasta
+prima impartire fiind una grosiera, ulterior fiecare thread de nivel1 isi corecteaza
+pozitia de inceput/sfarsit relativ la liniile citite (detalii in README_BONUS)
+- creaza 2 pool-uri ce permit executia in paralel a maxim P threaduri/pool pentru
+cele 2 nivele de threaduri, asigurand respectarea conditiei din enunt de a nu avea mai
+mult de P threaduri active / nivel
+- trimite P taskuri spre pool-ul de nivel1, astfel ajungand sa pornim toate threadurile
+care asigneaza comenzi din fisierul de intrare
+
+Task1:
+- este un model de thread aferent nivelului 1, acesta incepe executia prin corectarea
+si verificarea zonei proprii de citire din fisier (isi va opri executia daca zona
+sa de citire depaseste granita superioara a fisierului de intrare); detalii despre
+modul de corectare a pozitiei de citire in README_BONUS
+- avand o zona de citire corect definita, threadul parcurge liniile asignate din
+fisier si pentru fiecare dintre ele decodifica instructiunea dupa modelul
+id_comanda,nr_produse (delimiteaza atributele dupa ',')
+- fiecare comanda decodificata actualizeaza intrarile in structurile de date specifice
+comenzilor si ulterior porneste un prim task de nivel2 care sa identifice produsele
+individuale din comanda curenta
+- nu e necesar sa astepte raspunsul taskurilor generate, asa ca isi opreste executia,
+lasand resursele sistemului disponibile pentru executia taskurilor de nivel 2
+
+Task2:
+- model de thread aferent nivelului 2; citeste linie cu linie fiserul de intrare
+aferent produselor, incepand de la o poztie primita ca parametru (deci va sari
+peste liniile deja citite de alte threaduri care au avut aceeasi comanda asignata)
+- cand descopera un produs din comanda curenta va actualiza fisierul de iesire,
+marcandu-l drept livrat si decrementeaza target-ul de produse pe care le are de gasit
+- odata ce a gasit toate produsele pe care le avea asignate, verifica daca comanda
+curenta a fost finalizata intru totul (toate produsele livrate), caz in care
+genereaza un task de scriere, altfel va genera un nou task de nivel 2 care sa continue
+cautarea din punctul in care el s-a oprit si sa caute tot N elemente (cate a avut si
+el de cautat) sau numarul de elemente ramase in aceasta comanda, daca e mai mic decat N
+- in final taskul este marcat ca inchis, realizandu-se si inchiderea fisierului
+de citire
+- exemplu rulare: daca o comanda este formata din 10 produse si avem disponibile 3
+threaduri ce se pot executa in paralel pe nivelul 2, fiecare astfel de thread va
+incerca sa caute cate 10 / 3 = 3 produse din comanda pana sa isi termine
+executia; daca dupa ce le-a gasit pe toate asignate siesi, comanda inca nu a fost
+finalizata, va genera un alt thread de acelasi nivel care sa continue cautarea din
+punctul in care acesta s-a oprit, sarind peste o zona de produse deja parcursa
+
+Task1Writer:
+- acest tip de taskuri va fi creat de threadurile de nivel2 odata ce observa ca
+o anumita comanda a fost livrata intru totul, rolur lor fiind doar de a scrie
+outputul corespunzator comenzii; toata scrierile facute in fisierele de iesire
+sunt sincronizate
+- inainte sa-si termine executia, threadurile acestea verifica daca s-au finalizat
+toate comenzile, caz in care pool-ul de nivel 2 va fi gol (deoarece si ultimul
+thread care cauta produsele ultimei comenzi s-a finalizat, el fiind, de fapt, cel
+care a creat taskul curent), iar in pool-ul de nivel1 taskul curent este ultimul
+ramas, deci va inchide cele 2 pool-uri
+
+Constants:
+- contine o serie de valori constante folosite in cadrul programului

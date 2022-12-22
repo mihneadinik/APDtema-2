@@ -6,7 +6,8 @@ public class Task1Writer implements Runnable{
     private final ExecutorService pool2;
     private final String orderId;
 
-    public Task1Writer(ExecutorService pool1, ExecutorService pool2, String orderId) {
+    public Task1Writer(ExecutorService pool1, ExecutorService pool2,
+                       String orderId) {
         this.pool1 = pool1;
         this.pool2 = pool2;
         this.orderId = orderId;
@@ -18,7 +19,9 @@ public class Task1Writer implements Runnable{
      */
     private void writeOutput() throws IOException {
         synchronized (Tema2.ordersOutFile) {
-            Tema2.ordersOutFile.print(orderId + Constants.separator + Tema2.orderToObjectsClone.get(orderId) + Constants.outputFileEnding);
+            Tema2.ordersOutFile.print(orderId + Constants.separator +
+                    Tema2.orderToObjectsClone.get(orderId) +
+                    Constants.outputFileEnding);
         }
     }
 

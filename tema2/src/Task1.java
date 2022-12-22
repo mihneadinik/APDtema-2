@@ -126,7 +126,8 @@ public class Task1 implements Runnable{
             Tema2.orderToObjects.put(orderId, nrProducts);
             Tema2.orderToObjectsClone.put(orderId, nrProducts);
 
-            pool2.submit(new Task2(orderId, pool1, pool2, 0, max(1, nrProducts / Tema2.P)));
+            pool2.submit(new Task2(orderId, pool1, pool2, 0,
+                    max(1, nrProducts / Tema2.P)));
         }
 
         closeThread();

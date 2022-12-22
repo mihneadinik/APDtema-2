@@ -13,7 +13,8 @@ public class Task2 implements Runnable{
     private Integer objectsCounter;
     private final Integer objectsCounterInitial;
 
-    public Task2(String orderId, ExecutorService pool1, ExecutorService pool2, long startPos, int objectsCounter) throws FileNotFoundException {
+    public Task2(String orderId, ExecutorService pool1, ExecutorService pool2,
+                 long startPos, int objectsCounter) throws FileNotFoundException {
         this.orderId = orderId;
         this.startPos = startPos;
         this.pool1 = pool1;
@@ -69,7 +70,8 @@ public class Task2 implements Runnable{
 
         if (Tema2.orderToObjects.get(orderId) > 0) {
             // didn't finish the order yet => new task starting from where this one stopped
-            pool2.submit(new Task2(orderId, pool1, pool2, startPos, min(objectsCounterInitial, Tema2.orderToObjects.get(orderId))));
+            pool2.submit(new Task2(orderId, pool1, pool2, startPos,
+                    min(objectsCounterInitial, Tema2.orderToObjects.get(orderId))));
         } else {
             // order finished, print its output
             pool1.submit(new Task1Writer(pool1, pool2, orderId));
@@ -87,7 +89,8 @@ public class Task2 implements Runnable{
         objectsCounter--;
 
         synchronized (Tema2.orderProductsOutFile) {
-            Tema2.orderProductsOutFile.print(orderId + Constants.separator + productId + Constants.outputFileEnding);
+            Tema2.orderProductsOutFile.print(orderId + Constants.separator +
+                    productId + Constants.outputFileEnding);
         }
     }
 

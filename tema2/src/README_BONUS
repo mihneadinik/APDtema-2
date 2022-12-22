@@ -1,0 +1,29 @@
+Dinica Mihnea 333CA
+Rezolvarea bonusului pentru fisierul orders.txt:
+- avand P threaduri care citesc din acest fisier, am impus ca fiecare sa citeasca
+aproximativ len_file_bytes / nr_threaduri bytesi din fisier, aceasta fiind zona proprie
+threadurilor
+- pentru un fisier foarte scurt si un numar foarte mare de threaduri se va ajunge ca
+primele threaduri sa citeasca cate o linii, iar cele ramase la coada nu vor avea ce executa
+(ex: 10 threaduri si 7 linii => 3 threaduri nu citesc nimic)
+- impartirea initiala este una aproximativa, grosiera, intrucat liniile au dimensiuni
+diferite, deci se poate ajunge ca finalul portiunii de citire a unui thread sa nu
+coincida exact cu finalul liniei (analog si pentru inceputul zonei de citire). In acest
+caz, threadul isi va mari zona de citire pana ajunge la finalul ultimului rand asignat.
+Desigur, asta inseamna ca va intra peste zona de citire a threadului urmator, dar si
+acesta isi va modifica pozitia de inceput la finalul linii curente, deci nu exista
+situatii sa se citeasca aceeasi linie de granita de 2 ori
+- pentru a verifica pozitia de inceput/sfarsit a zonei de citire a unui thread se
+verifica daca byte-ul anterior acestei pozitii este marcatorul de sfarsit de linie;
+altfel inseamna ca suntem in interiorul unei linii si se muta pozitia cursorului
+pana la primul marcator de sfarsit de linie (sau sfarsitul fisierului)
+
+Eficientizarea citirii din order_products.txt:
+- fiecare thread destinat sa citeasca acest fisier trebuie sa caute N produse
+ale aceleiasi comenzi, unde N este aproximativ nr_total_produse_comanda / nr_threaduri,
+astfel evitam overheadul generat de crearea cate unui task individual pentru fiecare
+aparite de produs si inceperea unei noi citiri din fisier
+- threadurile nu vor incepe mereu parcurgerea fisierului de la inceputul sau, ci vor
+continua exact de la pozitia la care s-a oprit threadul anterior care a avut acelasi
+id de comanda asignat, astfel am evitat citirea inutila a intregului fisier de produse
+si erorile generate de aparitia unei cantitati multiple a aceluiasi produs din comanda
