@@ -2,18 +2,17 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.lang.Math.max;
 
 public class Task1 implements Runnable{
     private final Integer id;
     private final ExecutorService pool1;
     private final ExecutorService pool2;
     private long left, right;
-    private RandomAccessFile file;
-    private ArrayList<String> lines;
+    private final RandomAccessFile file;
+    private final ArrayList<String> lines;
     private Boolean closedThread;
 
     public Task1(Integer id, ExecutorService pool1, ExecutorService pool2) throws FileNotFoundException {
@@ -25,27 +24,28 @@ public class Task1 implements Runnable{
         this.closedThread = false;
     }
 
+    /**
+     * function that moves the cursor at the beginning
+     * of a new line
+     * @param pos starting index
+     */
     private long moveUntilNewLine(long pos) throws IOException {
-        file.seek(pos);
-        int currChar = file.read();
-        while(currChar != '\n' && file.getFilePointer() < Tema2.orderLength) {
-            currChar = file.read();
+        // already at new line
+        file.seek(pos - 1);
+        if (file.read() == '\n') {
+            return pos;
         }
+
+        while (file.read() != '\n' && file.getFilePointer() < Tema2.orderFileLength) {}
 
         return file.getFilePointer();
     }
 
-    private void closeThread() throws IOException {
-        Tema2.level1ThreadsActive.getAndDecrement();
+    /**
+     * marks current thread as closed
+     */
+    private void closeThread() {
         this.closedThread = true;
-
-        // check if needed to close pools
-        if (Tema2.level1ThreadsActive.get() == 0) {
-            pool2.shutdown();
-            pool1.shutdown();
-            Tema2.orderProductsOutFile.close();
-            Tema2.ordersOutFile.close();
-        }
     }
 
     /**
@@ -59,7 +59,7 @@ public class Task1 implements Runnable{
         right = margins.get(1);
 
         // out of file starting position
-        if (left >= Tema2.orderLength) {
+        if (left >= Tema2.orderFileLength) {
             closeThread();
             return;
         }
@@ -69,74 +69,79 @@ public class Task1 implements Runnable{
             left = moveUntilNewLine(left);
 
             // file finished here
-            if (left >= Tema2.orderLength) {
+            if (left >= Tema2.orderFileLength) {
                 closeThread();
                 return;
             }
         }
 
         // correct end index
-        if (right >= Tema2.orderLength) {
-            right = Tema2.orderLength;
+        if (right >= Tema2.orderFileLength) {
+            right = Tema2.orderFileLength;
         } else {
             right = moveUntilNewLine(right) - 1;
         }
     }
 
-    private void updateReadMargins() {
-        Tema2.threadToBytes.put(this.id, new ArrayList<>(Arrays.asList(left, right)));
-    }
-
+    /**
+     * function that reads the lines assigned
+     * to a level1 thread
+     */
     private void readLines() throws IOException {
         file.seek(left);
         while (file.getFilePointer() < right) {
             String newLine = file.readLine();
             this.lines.add(newLine);
         }
-        Tema2.threadToOrdersNumber.put(id, new AtomicInteger(lines.size()));
         file.close();
     }
 
+    /**
+     * function that separates the elements
+     * of a line by comma
+     * @param pos line index relative to current
+     * thread's area of work
+     */
     private String[] parseLine(int pos) {
         String line = lines.get(pos);
-        return line.split(",");
+        return line.split(Constants.separator);
     }
 
+    /**
+     * function that creates level2 tasks for each order
+     */
     private void assignTasks() throws InterruptedException, IOException {
         for (int i = 0; i < lines.size(); i++) {
             String[] elems = parseLine(i);
-            String orderId = elems[0];
-            int nrProducts = Integer.parseInt(elems[1]);
+            String orderId = elems[Constants.orderNamePosition];
+            int nrProducts = Integer.parseInt(elems[Constants.orderNumberOfElementsPosition]);
 
+            // empty order
+            if (nrProducts == 0) {
+                continue;
+            }
+
+            // update orders information
+            Tema2.ordersInProgress.incrementAndGet();
             Tema2.orderToObjects.put(orderId, nrProducts);
-            // wait until order is finished
-            Semaphore sem = new Semaphore(-nrProducts + 1);
-            pool2.submit(new Task2(orderId, sem, pool2, 0));
-            sem.acquire();
-            writeOutput(orderId, nrProducts);
+            Tema2.orderToObjectsClone.put(orderId, nrProducts);
+
+            pool2.submit(new Task2(orderId, pool1, pool2, 0,
+                    max(1, nrProducts / Tema2.P)));
         }
 
         closeThread();
-    }
-
-    private void writeOutput(String order, int products) throws IOException {
-        if (products == 0) {
-            return;
-        }
-        synchronized (Tema2.ordersOutFile) {
-            Tema2.ordersOutFile.print(order + "," + products + ",shipped\n");
-        }
     }
 
     @Override
     public void run() {
         try {
             correctReadMargins();
+            // thread doesn't have a valid read portion
             if (this.closedThread) {
                 return;
             }
 
-            updateReadMargins();
             readLines();
             assignTasks();
         } catch (IOException | InterruptedException e) {

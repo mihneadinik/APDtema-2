@@ -1,7 +1,7 @@
 TARGETS=tema2
 build: $(TARGETS)
 
-tema2: Tema2.java Task1.java Task2.java Constants.java
+tema2: Tema2.java Task1.java Task1Writer.java Task2.java Constants.java
 	javac $^
 	
 run_test:
